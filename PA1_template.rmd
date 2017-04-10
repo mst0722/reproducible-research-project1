@@ -1,0 +1,141 @@
+---
+title: "Reproducible Research Project1"
+author: "Mary T."
+date: "April 9, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## (1) Loading and preprocessing the data
+## download file
+```{r}
+library(plyr)
+library(ggplot2)
+file_url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+file_name <- "repdata_data_activity.zip"
+download.file(file_url, file_name, method = "curl")
+unzip(file_name)
+
+```
+## Read file
+```{r}
+activity <- read.csv('./activity.csv', header=TRUE, na.strings="NA")
+str(activity)
+```
+
+## Format date variable to date class and interval variable to factor class
+```{r}
+activity$date <- as.Date(activity$date)
+activity$interval <- as.factor(activity$interval)
+```
+## (2) What is mean total number of steps taken per day?
+## Plot a histogram of total steps taken each day
+
+# Total steps taken each day
+```{r}
+activity_1 <- ddply(activity, c("date"), summarize,
+                     steps  = sum(steps,na.rm = TRUE)
+ )
+```
+# Mean and median of the total number of steps taken each day
+```{r}
+steps_mean = mean(activity_1$steps)
+steps_median = median(activity_1$steps)
+
+sprintf("Mean number of steps: %s", steps_mean)
+sprintf("Median number of steps: %s", steps_median)
+```
+```{r}
+ggplot(activity_1, aes(x=steps)) + 
+    geom_histogram(binwidth = 2000, color="blue", fill="white")+
+    xlab("Total steps per day") +     ylab("Frequency") +
+    ggtitle("Total Number of Steps Taken Each Day") +
+    geom_vline(aes(xintercept = steps_mean, color="mean"), size = 0.7) +
+    geom_vline(aes(xintercept = steps_median, color="median"), size = 0.7)
+```
+
+
+## (3) What is the average daily activity pattern?
+# Average steps taken each day
+```{r}
+activity_2 <- ddply(activity, c("interval"), summarize,
+                     average_steps  = mean(steps,na.rm = TRUE)
+ )
+```
+# Make a time-series plot of the 5-minute interval (x-axis) and the average number of steps taken (y-axis)
+```{r}
+x <- activity_2$interval
+y <- activity_2$average_steps
+plot(x,y, type="l", xlab = "5 Minute Intervals", ylab = "Average Number of Steps Taken", main = "The Average Daily Activity Pattern", col="blue")
+```
+# Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+```{r}
+max_steps <- activity_2$interval[which.max(activity_2$average_steps)]
+sprintf("The 5-minute interval with the maximum number of steps on average is: %s", max_steps)
+```
+## (4) Impute missing values
+# Calculate and report the total number of missing values (NA)
+```{r}
+na_values <- is.na(activity[,1])
+sprintf("Number of missing values: %s", sum(na_values))
+```
+# Devise a strategy for filling in all the missing values in the dataset, e.g. use the mean, median for the day ,or the mean for the interval
+# Using the mean steps for the 5-minute intervals, create new dataframe 
+```{r}
+activity_3 <- merge(activity, activity_2, by = "interval")
+```
+#Create a new dataset that is equal to the original dataset but with the missing values filled in with mean steps
+```{r}
+activity_3[na_values, "steps"] <- activity_3[na_values, "average_steps"]
+new_dataset <- activity_3[,3:2]
+
+activity_4 <- ddply(new_dataset, c("date"), summarize,
+                     steps  = sum(steps,na.rm = TRUE)
+ )
+```
+#Make a histogram of the total steps take each day. Calculate the mean and median. Do the values differ from the first part of the assignment?
+```{r}
+ggplot(activity_4, aes(x=steps)) + 
+    geom_histogram(binwidth = 2000, color="black", fill="white")+
+    xlab("Total steps per day") +     
+    ylab("Frequency") +
+    ggtitle("Total Number of Steps Taken Each Day") +
+    geom_vline(aes(xintercept = mean(activity_4$steps), color="mean"), size = 1.0) +
+    geom_vline(aes(xintercept = median(activity_4$steps), color="median"), size = 1.0)
+```
+```{r}
+sprintf("New mean number of steps: %s", mean(activity_4$steps))
+sprintf("New median number of steps: %s", median(activity_4$steps))
+```
+##Answer: Mean and median steps are similar to the original values. The shape of the histogram is also similar to the original.
+
+
+## (4) Are there differences in activity patterns between weekends and weekdays?
+# Create a new factor variable in the dataset with two variables - weekday and weekend
+```{r}
+activity_3$weekdays <- weekdays(activity_3$date)
+
+activity_5 <- ddply(activity_3, c("interval","weekdays"), summarize,
+                     average_steps  = mean(steps,na.rm = TRUE)
+ )
+```
+# Make a panel plot containing a time-series plot of the 5-minute interval (x-axis) indicating whether a given date is a weekday or a weekend (y-axis)
+```{r}
+x <- activity_5$weekdays
+y <- activity_5$average_steps
+
+qplot(interval, average_steps, data = activity_5, 
+	facets = weekdays~., 
+	xlab = "5 Minute Intervals", 
+	ylab = "Average Number of Steps Taken", 
+	main = "The Average Daily Activity Pattern") +
+	geom_smooth()
+```
+
+
+
+
+
